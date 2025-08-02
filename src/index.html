@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Parser</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .upload-area {
+            border: 2px dashed #007bff;
+            border-radius: 5px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .upload-area:hover {
+            background-color: #f0f8ff;
+            border-color: #0056b3;
+        }
+        .upload-area.dragover {
+            background-color: #e9ecef;
+            border-color: #495057;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .file-info {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+            display: none;
+        }
+        .table-container {
+            margin-top: 30px;
+            overflow-x: auto;
+            display: none;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+        }
+        tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        .error {
+            color: #dc3545;
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8d7da;
+            border-radius: 5px;
+            display: none;
+        }
+        .sheet-tabs {
+            margin: 20px 0;
+            display: none;
+        }
+        .sheet-tab {
+            display: inline-block;
+            padding: 8px 16px;
+            margin-right: 5px;
+            background-color: #e9ecef;
+            border: 1px solid #ddd;
+            border-radius: 5px 5px 0 0;
+            cursor: pointer;
+        }
+        .sheet-tab.active {
+            background-color: #007bff;
+            color: white;
+        }
+        .chart-container {
+            margin: 30px 0;
+            display: none;
+        }
+        .chart-container h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .month-selector {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .month-selector select {
+            padding: 8px 16px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        #spendingChart {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Excel File Parser</h1>
+        
+        <div class="upload-area" id="uploadArea">
+            <p>Click to select or drag and drop an Excel file here</p>
+            <p>Supports .xlsx, .xls, .csv files</p>
+        </div>
+        
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+        
+        <div class="file-info" id="fileInfo"></div>
+        
+        <div class="error" id="errorMessage"></div>
+        
+        <div class="sheet-tabs" id="sheetTabs"></div>
+        
+        <div class="chart-container" id="chartContainer">
+            <h2>Monthly Spending Analysis</h2>
+            <div class="month-selector">
+                <label for="monthSelect">Select Month: </label>
+                <select id="monthSelect"></select>
+            </div>
+            <canvas id="spendingChart"></canvas>
+        </div>
+        
+        <div class="table-container" id="tableContainer">
+            <table id="dataTable">
+                <thead id="tableHead"></thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>
