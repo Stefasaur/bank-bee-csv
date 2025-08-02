@@ -189,6 +189,20 @@
             text-align: center;
             margin-bottom: 20px;
         }
+        .main-logo-container {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .main-logo {
+            max-width: 120px;
+            height: auto;
+            margin-bottom: 15px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+            margin: 5px 0 0 0;
+        }
         .bank-logo {
             max-width: 200px;
             height: auto;
@@ -212,4 +226,4 @@
         .bank-selector label {
             margin-right: 10px;
             font-weight: 500;
-        }</style><script defer="defer" src="/bank-bee-csv/bundle.js"></script></head><body><div class="container"><div class="bank-selector"><label for="bankSelect">Select your bank:</label> <select id="bankSelect"><option value="nkbm-otp">NKBM/OTP</option><option value="nlb">NLB</option><option value="intesa">Intesa Sanpaolo</option></select></div><div class="logo-container"><img src="" alt="Bank Logo" class="bank-logo" id="bankLogo"></div><h1>Bank Statement Analyzer</h1><div class="upload-area" id="uploadArea"><p>Drag and drop your bank CSV statement file here</p><p>Download from your bank's statements page with appropriate date filters</p></div><input type="file" id="fileInput" accept=".xlsx,.xls,.csv"><div class="file-info" id="fileInfo"></div><div class="error" id="errorMessage"></div><div class="sheet-tabs" id="sheetTabs"></div><div class="charts-container" id="chartsContainer"><h2>Monthly Financial Analysis</h2><div class="month-selector"><label for="monthSelect">Select Month:</label> <select id="monthSelect"></select></div><div class="chart-view-toggle"><button id="categoryView" class="active">By Category</button> <button id="recipientView">By Recipient</button></div><div class="chart-type-toggle"><button id="pieChart" class="active">Pie Chart</button> <button id="dailyChart">Day-by-Day</button></div><div class="charts-row"><div class="chart-item"><h3>Expenses</h3><p class="total-amount" id="expenseTotal">€0.00</p><canvas id="expenseChart"></canvas></div><div class="chart-item"><h3>Income</h3><p class="total-amount" id="incomeTotal">€0.00</p><canvas id="incomeChart"></canvas></div></div></div><div class="table-container" id="tableContainer"><table id="dataTable"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table></div></div></body></html>
+        }</style><script defer="defer" src="/bank-bee-csv/bundle.js"></script></head><body><div class="container"><div class="main-logo-container"><img src="" alt="Bank Bee CSV Logo" class="main-logo" id="mainLogo"><h1>Bank Bee CSV</h1><p class="subtitle">Privacy-First Bank Statement Analyzer</p></div><div class="bank-selector"><label for="bankSelect">Select your bank:</label> <select id="bankSelect"><option value="nkbm-otp">NKBM/OTP</option><option value="nlb">NLB</option><option value="intesa">Intesa Sanpaolo</option></select></div><div class="logo-container"><img src="" alt="Bank Logo" class="bank-logo" id="bankLogo"></div><div class="upload-area" id="uploadArea"><p>Drag and drop your bank CSV statement file here</p><p>Download from your bank's statements page with appropriate date filters</p></div><input type="file" id="fileInput" accept=".xlsx,.xls,.csv"><div class="file-info" id="fileInfo"></div><div class="error" id="errorMessage"></div><div class="sheet-tabs" id="sheetTabs"></div><div class="charts-container" id="chartsContainer"><h2>Monthly Financial Analysis</h2><div class="month-selector"><label for="monthSelect">Select Month:</label> <select id="monthSelect"></select></div><div class="chart-view-toggle"><button id="categoryView" class="active">By Category</button> <button id="recipientView">By Recipient</button></div><div class="chart-type-toggle"><button id="pieChart" class="active">Pie Chart</button> <button id="dailyChart">Day-by-Day</button></div><div class="charts-row"><div class="chart-item"><h3>Expenses</h3><p class="total-amount" id="expenseTotal">€0.00</p><canvas id="expenseChart"></canvas></div><div class="chart-item"><h3>Income</h3><p class="total-amount" id="incomeTotal">€0.00</p><canvas id="incomeChart"></canvas></div></div></div><div class="table-container" id="tableContainer"><table id="dataTable"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table></div></div></body></html>
