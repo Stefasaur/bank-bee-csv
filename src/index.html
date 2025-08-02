@@ -146,6 +146,52 @@
             color: #333;
             margin: 5px 0 15px 0;
         }
+        .chart-view-toggle {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+        .chart-view-toggle button {
+            padding: 8px 20px;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            background-color: #f8f9fa;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        .chart-view-toggle button.active {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        .chart-view-toggle button:hover:not(.active) {
+            background-color: #e9ecef;
+        }
+        .chart-type-toggle {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+        .chart-type-toggle button {
+            padding: 8px 20px;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            background-color: #f8f9fa;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        .chart-type-toggle button.active {
+            background-color: #28a745;
+            color: white;
+            border-color: #28a745;
+        }
+        .chart-type-toggle button:hover:not(.active) {
+            background-color: #e9ecef;
+        }
         .logo-container {
             text-align: center;
             margin-bottom: 20px;
@@ -211,6 +257,14 @@
             <div class="month-selector">
                 <label for="monthSelect">Select Month: </label>
                 <select id="monthSelect"></select>
+            </div>
+            <div class="chart-view-toggle">
+                <button id="categoryView" class="active">By Category</button>
+                <button id="recipientView">By Recipient</button>
+            </div>
+            <div class="chart-type-toggle">
+                <button id="pieChart" class="active">Pie Chart</button>
+                <button id="dailyChart">Day-by-Day</button>
             </div>
             <div class="charts-row">
                 <div class="chart-item">

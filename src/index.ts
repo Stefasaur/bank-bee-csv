@@ -22,6 +22,18 @@ interface MonthlySpending {
     [category: string]: number;
 }
 
+interface RecipientData {
+    name: string;
+    amount: number;
+    count: number;
+}
+
+interface DailyData {
+    date: string;
+    amount: number;
+    count: number;
+}
+
 interface BankConfig {
     name: string;
     logo: string;
@@ -85,6 +97,12 @@ class ExcelParser {
     private expenseChart: Chart | null = null;
     private incomeChart: Chart | null = null;
     private currentBank: string = 'nkbm-otp';
+    private currentView: 'category' | 'recipient' = 'category';
+    private currentChartType: 'pie' | 'daily' = 'pie';
+    private categoryViewBtn: HTMLButtonElement;
+    private recipientViewBtn: HTMLButtonElement;
+    private pieChartBtn: HTMLButtonElement;
+    private dailyChartBtn: HTMLButtonElement;
 
     constructor() {
         this.fileInput = document.getElementById('fileInput') as HTMLInputElement;
@@ -99,6 +117,10 @@ class ExcelParser {
         this.monthSelect = document.getElementById('monthSelect') as HTMLSelectElement;
         this.bankSelect = document.getElementById('bankSelect') as HTMLSelectElement;
         this.bankLogo = document.getElementById('bankLogo') as HTMLImageElement;
+        this.categoryViewBtn = document.getElementById('categoryView') as HTMLButtonElement;
+        this.recipientViewBtn = document.getElementById('recipientView') as HTMLButtonElement;
+        this.pieChartBtn = document.getElementById('pieChart') as HTMLButtonElement;
+        this.dailyChartBtn = document.getElementById('dailyChart') as HTMLButtonElement;
 
         this.initializeEventListeners();
         this.updateBankLogo();
@@ -109,6 +131,10 @@ class ExcelParser {
         this.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
         this.monthSelect.addEventListener('change', () => this.updateCharts());
         this.bankSelect.addEventListener('change', (e) => this.handleBankChange(e));
+        this.categoryViewBtn.addEventListener('click', () => this.switchChartView('category'));
+        this.recipientViewBtn.addEventListener('click', () => this.switchChartView('recipient'));
+        this.pieChartBtn.addEventListener('click', () => this.switchChartType('pie'));
+        this.dailyChartBtn.addEventListener('click', () => this.switchChartType('daily'));
 
         this.uploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -428,23 +454,46 @@ class ExcelParser {
             t.type === 'income'
         );
 
-        // Categorize expenses
-        const expenseData: MonthlySpending = {};
-        monthlyExpenses.forEach(t => {
-            const category = this.categorizeTransaction(t);
-            expenseData[category] = (expenseData[category] || 0) + t.amount;
-        });
+        if (this.currentChartType === 'pie') {
+            if (this.currentView === 'category') {
+                // Categorize expenses
+                const expenseData: MonthlySpending = {};
+                monthlyExpenses.forEach(t => {
+                    const category = this.categorizeTransaction(t);
+                    expenseData[category] = (expenseData[category] || 0) + t.amount;
+                });
 
-        // Categorize income
-        const incomeData: MonthlySpending = {};
-        monthlyIncome.forEach(t => {
-            const category = this.categorizeTransaction(t);
-            incomeData[category] = (incomeData[category] || 0) + t.amount;
-        });
+                // Categorize income
+                const incomeData: MonthlySpending = {};
+                monthlyIncome.forEach(t => {
+                    const category = this.categorizeTransaction(t);
+                    incomeData[category] = (incomeData[category] || 0) + t.amount;
+                });
 
-        this.drawExpenseChart(expenseData);
-        this.drawIncomeChart(incomeData);
-        this.updateTotals(expenseData, incomeData);
+                this.drawExpenseChart(expenseData);
+                this.drawIncomeChart(incomeData);
+                this.updateTotals(expenseData, incomeData);
+            } else {
+                // Group by recipient
+                const expenseData = this.getTopRecipients(monthlyExpenses);
+                const incomeData = this.getTopRecipients(monthlyIncome);
+                
+                this.drawExpenseChart(expenseData);
+                this.drawIncomeChart(incomeData);
+                this.updateTotals(expenseData, incomeData);
+            }
+        } else {
+            // Daily view
+            const expenseDailyData = this.getDailyData(monthlyExpenses);
+            const incomeDailyData = this.getDailyData(monthlyIncome);
+            
+            this.drawDailyChart('expenseChart', expenseDailyData, 'Expenses');
+            this.drawDailyChart('incomeChart', incomeDailyData, 'Income');
+            this.updateTotals(
+                this.dailyDataToSpending(expenseDailyData),
+                this.dailyDataToSpending(incomeDailyData)
+            );
+        }
     }
 
     private drawExpenseChart(expenseData: MonthlySpending): void {
@@ -455,6 +504,7 @@ class ExcelParser {
 
         if (this.expenseChart) {
             this.expenseChart.destroy();
+            this.expenseChart = null;
         }
 
         const labels = Object.keys(expenseData);
@@ -505,7 +555,13 @@ class ExcelParser {
                                 const value = context.parsed || 0;
                                 const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
                                 const percentage = ((value / total) * 100).toFixed(1);
-                                return `${label}: €${value.toFixed(2)} (${percentage}%)`;
+                                
+                                if (this.currentView === 'recipient') {
+                                    // For recipient view, show cleaner format
+                                    return `${label}: €${value.toFixed(2)} (${percentage}%)`;
+                                } else {
+                                    return `${label}: €${value.toFixed(2)} (${percentage}%)`;
+                                }
                             }
                         }
                     }
@@ -522,6 +578,7 @@ class ExcelParser {
 
         if (this.incomeChart) {
             this.incomeChart.destroy();
+            this.incomeChart = null;
         }
 
         const labels = Object.keys(incomeData);
@@ -572,13 +629,239 @@ class ExcelParser {
                                 const value = context.parsed || 0;
                                 const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
                                 const percentage = ((value / total) * 100).toFixed(1);
-                                return `${label}: €${value.toFixed(2)} (${percentage}%)`;
+                                
+                                if (this.currentView === 'recipient') {
+                                    // For recipient view, show cleaner format
+                                    return `${label}: €${value.toFixed(2)} (${percentage}%)`;
+                                } else {
+                                    return `${label}: €${value.toFixed(2)} (${percentage}%)`;
+                                }
                             }
                         }
                     }
                 }
             }
         });
+    }
+
+    private switchChartView(view: 'category' | 'recipient'): void {
+        this.currentView = view;
+        
+        // Update button styles
+        if (view === 'category') {
+            this.categoryViewBtn.classList.add('active');
+            this.recipientViewBtn.classList.remove('active');
+        } else {
+            this.recipientViewBtn.classList.add('active');
+            this.categoryViewBtn.classList.remove('active');
+        }
+        
+        // Refresh charts
+        this.updateCharts();
+    }
+
+    private switchChartType(type: 'pie' | 'daily'): void {
+        this.currentChartType = type;
+        
+        // Update button styles
+        if (type === 'pie') {
+            this.pieChartBtn.classList.add('active');
+            this.dailyChartBtn.classList.remove('active');
+        } else {
+            this.dailyChartBtn.classList.add('active');
+            this.pieChartBtn.classList.remove('active');
+        }
+        
+        // Refresh charts
+        this.updateCharts();
+    }
+
+    private getTopRecipients(transactions: Transaction[]): MonthlySpending {
+        const recipientMap = new Map<string, RecipientData>();
+        
+        transactions.forEach(t => {
+            const cleanName = this.cleanRecipientName(t.recipient);
+            if (cleanName === 'Unknown' || cleanName.length < 3) return;
+            
+            const existing = recipientMap.get(cleanName);
+            if (existing) {
+                existing.amount += t.amount;
+                existing.count += 1;
+            } else {
+                recipientMap.set(cleanName, {
+                    name: cleanName,
+                    amount: t.amount,
+                    count: 1
+                });
+            }
+        });
+        
+        // Get top 10 by amount, but also consider frequency
+        const recipients = Array.from(recipientMap.values())
+            .sort((a, b) => {
+                // Sort by amount primarily, but boost frequent transactions
+                const scoreA = a.amount + (a.count * 10); // Small bonus for frequency
+                const scoreB = b.amount + (b.count * 10);
+                return scoreB - scoreA;
+            })
+            .slice(0, 10);
+        
+        const result: MonthlySpending = {};
+        recipients.forEach(r => {
+            const label = `${r.name} (${r.count}x)`;
+            result[label] = r.amount;
+        });
+        
+        return result;
+    }
+
+    private cleanRecipientName(name: string): string {
+        if (!name || name.trim() === '') return 'Unknown';
+        
+        let cleaned = name.trim().toUpperCase();
+        
+        // Remove common prefixes/suffixes
+        cleaned = cleaned.replace(/^(PODJETJE|D\.O\.O\.|S\.P\.|K\.D\.)\s*/i, '');
+        cleaned = cleaned.replace(/\s*(D\.O\.O\.|S\.P\.|K\.D\.)$/i, '');
+        
+        // Remove extra whitespace
+        cleaned = cleaned.replace(/\s+/g, ' ').trim();
+        
+        // Limit length for display
+        if (cleaned.length > 25) {
+            cleaned = cleaned.substring(0, 22) + '...';
+        }
+        
+        return cleaned || 'Unknown';
+    }
+
+    private getDailyData(transactions: Transaction[]): DailyData[] {
+        const dailyMap = new Map<string, DailyData>();
+        
+        transactions.forEach(t => {
+            const dateKey = t.date.toISOString().split('T')[0]; // YYYY-MM-DD format
+            
+            const existing = dailyMap.get(dateKey);
+            if (existing) {
+                existing.amount += t.amount;
+                existing.count += 1;
+            } else {
+                dailyMap.set(dateKey, {
+                    date: dateKey,
+                    amount: t.amount,
+                    count: 1
+                });
+            }
+        });
+        
+        // Sort by date and return array
+        return Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    private dailyDataToSpending(dailyData: DailyData[]): MonthlySpending {
+        const total = dailyData.reduce((sum, day) => sum + day.amount, 0);
+        return { 'Total': total };
+    }
+
+    private drawDailyChart(canvasId: string, dailyData: DailyData[], title: string): void {
+        const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) return;
+
+        // Destroy existing chart
+        if (canvasId === 'expenseChart' && this.expenseChart) {
+            this.expenseChart.destroy();
+            this.expenseChart = null;
+        } else if (canvasId === 'incomeChart' && this.incomeChart) {
+            this.incomeChart.destroy();
+            this.incomeChart = null;
+        }
+
+        if (dailyData.length === 0) {
+            // No data - show empty state
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#666';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(`No ${title.toLowerCase()} this month`, canvas.width / 2, canvas.height / 2);
+            return;
+        }
+        
+        const labels = dailyData.map(d => {
+            const date = new Date(d.date);
+            return `${date.getDate()}/${date.getMonth() + 1}`;
+        });
+        const amounts = dailyData.map(d => Math.round(d.amount * 100) / 100);
+        const counts = dailyData.map(d => d.count);
+        
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: `${title} Amount (€)`,
+                    data: amounts,
+                    borderColor: canvasId === 'expenseChart' ? '#FF6B6B' : '#4ECDC4',
+                    backgroundColor: canvasId === 'expenseChart' ? '#FF6B6B20' : '#4ECDC420',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Amount (€)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Day of Month'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            boxWidth: 12,
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                const dayIndex = context.dataIndex;
+                                const amount = amounts[dayIndex];
+                                const count = counts[dayIndex];
+                                const date = dailyData[dayIndex].date;
+                                return [
+                                    `Date: ${date}`,
+                                    `Amount: €${amount.toFixed(2)}`,
+                                    `Transactions: ${count}`
+                                ];
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Store chart reference
+        if (canvasId === 'expenseChart') {
+            this.expenseChart = chart;
+        } else {
+            this.incomeChart = chart;
+        }
     }
 
     private updateTotals(expenseData: MonthlySpending, incomeData: MonthlySpending): void {
