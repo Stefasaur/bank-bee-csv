@@ -1,17 +1,28 @@
 {
   "name": "bank-bee-csv",
   "version": "1.0.0",
+  "description": "Privacy-first bank statement analyzer for CSV files",
   "main": "index.js",
+  "homepage": "https://stefasaur.github.io/bank-bee-csv/",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "webpack --mode production",
-    "dev": "webpack serve --mode development"
+    "build": "cross-env NODE_ENV=production webpack --mode production",
+    "dev": "webpack serve --mode development",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "keywords": [
+    "bank",
+    "csv",
+    "analyzer",
+    "finance",
+    "privacy"
+  ],
+  "author": "Stefasaur",
+  "license": "MIT",
   "devDependencies": {
+    "cross-env": "^10.0.0",
+    "gh-pages": "^6.3.0",
     "html-webpack-plugin": "^5.6.3",
     "ts-loader": "^9.5.2",
     "typescript": "^5.9.2",
