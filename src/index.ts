@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import Chart from 'chart.js/auto';
+import bankBeeLogo from './assets/images/Bank-Bee.png';
 import nkbmOtpLogo from './assets/images/nkbm-otp-logo.webp';
 import nlbLogo from './assets/images/nlb-bank.webp';
 import intesaLogo from './assets/images/sanpaolo.jpg';
@@ -103,6 +104,7 @@ class ExcelParser {
     private recipientViewBtn: HTMLButtonElement;
     private pieChartBtn: HTMLButtonElement;
     private dailyChartBtn: HTMLButtonElement;
+    private mainLogo: HTMLImageElement;
 
     constructor() {
         this.fileInput = document.getElementById('fileInput') as HTMLInputElement;
@@ -121,9 +123,11 @@ class ExcelParser {
         this.recipientViewBtn = document.getElementById('recipientView') as HTMLButtonElement;
         this.pieChartBtn = document.getElementById('pieChart') as HTMLButtonElement;
         this.dailyChartBtn = document.getElementById('dailyChart') as HTMLButtonElement;
+        this.mainLogo = document.getElementById('mainLogo') as HTMLImageElement;
 
         this.initializeEventListeners();
         this.updateBankLogo();
+        this.setMainLogo();
     }
 
     private initializeEventListeners(): void {
@@ -987,6 +991,13 @@ class ExcelParser {
 
     private hideCharts(): void {
         this.chartsContainer.style.display = 'none';
+    }
+
+    private setMainLogo(): void {
+        if (this.mainLogo) {
+            this.mainLogo.src = bankBeeLogo;
+            this.mainLogo.alt = 'Bank Bee CSV Logo';
+        }
     }
 
     private updateBankLogo(): void {

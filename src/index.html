@@ -197,6 +197,20 @@
             text-align: center;
             margin-bottom: 20px;
         }
+        .main-logo-container {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .main-logo {
+            max-width: 120px;
+            height: auto;
+            margin-bottom: 15px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+            margin: 5px 0 0 0;
+        }
         .bank-logo {
             max-width: 200px;
             height: auto;
@@ -225,6 +239,12 @@
 </head>
 <body>
     <div class="container">
+        <div class="main-logo-container">
+            <img src="" alt="Bank Bee CSV Logo" class="main-logo" id="mainLogo">
+            <h1>Bank Bee CSV</h1>
+            <p class="subtitle">Privacy-First Bank Statement Analyzer</p>
+        </div>
+        
         <div class="bank-selector">
             <label for="bankSelect">Select your bank:</label>
             <select id="bankSelect">
@@ -237,8 +257,6 @@
         <div class="logo-container">
             <img src="" alt="Bank Logo" class="bank-logo" id="bankLogo">
         </div>
-        
-        <h1>Bank Statement Analyzer</h1>
         
         <div class="upload-area" id="uploadArea">
             <p>Drag and drop your bank CSV statement file here</p>

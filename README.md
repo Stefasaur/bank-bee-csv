@@ -1,5 +1,9 @@
 # 🐝 Bank Bee CSV
 
+<div align="center">
+  <img src="src/assets/images/Bank-Bee.png" alt="Bank Bee CSV Logo" width="120"/>
+</div>
+
 A privacy-first bank statement analyzer that processes your CSV files locally in your browser. Visualize your spending patterns, track income sources, and understand your financial habits - all without uploading sensitive data anywhere.
 
 ![Bank Bee CSV](https://img.shields.io/badge/Privacy-First-green)
