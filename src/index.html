@@ -121,15 +121,56 @@
             max-width: 500px;
             margin: 0 auto;
         }
+        .logo-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .bank-logo {
+            max-width: 200px;
+            height: auto;
+            opacity: 0.9;
+        }
+        .bank-selector {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .bank-selector select {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: white;
+            cursor: pointer;
+        }
+        .bank-selector select:hover {
+            border-color: #007bff;
+        }
+        .bank-selector label {
+            margin-right: 10px;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Excel File Parser</h1>
+        <div class="bank-selector">
+            <label for="bankSelect">Select your bank:</label>
+            <select id="bankSelect">
+                <option value="nkbm-otp">NKBM/OTP</option>
+                <option value="nlb">NLB</option>
+                <option value="intesa">Intesa Sanpaolo</option>
+            </select>
+        </div>
+        
+        <div class="logo-container">
+            <img src="" alt="Bank Logo" class="bank-logo" id="bankLogo">
+        </div>
+        
+        <h1>Bank Statement Analyzer</h1>
         
         <div class="upload-area" id="uploadArea">
-            <p>Click to select or drag and drop an Excel file here</p>
-            <p>Supports .xlsx, .xls, .csv files</p>
+            <p>Drag and drop your bank CSV statement file here</p>
+            <p>Download from your bank's statements page with appropriate date filters</p>
         </div>
         
         <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">

@@ -1,5 +1,8 @@
 import * as XLSX from 'xlsx';
 import Chart from 'chart.js/auto';
+import nkbmOtpLogo from './assets/images/nkbm-otp-logo.webp';
+import nlbLogo from './assets/images/nlb-bank.webp';
+import intesaLogo from './assets/images/sanpaolo.jpg';
 
 interface ParsedData {
     sheetName: string;
@@ -18,6 +21,46 @@ interface MonthlySpending {
     [category: string]: number;
 }
 
+interface BankConfig {
+    name: string;
+    logo: string;
+    dateColumn: string;
+    amountColumn: string;
+    descriptionColumn: string;
+    recipientColumn: string;
+    dateFormat: string;
+}
+
+const bankConfigs: { [key: string]: BankConfig } = {
+    'nkbm-otp': {
+        name: 'NKBM/OTP',
+        logo: nkbmOtpLogo,
+        dateColumn: 'DATUM VALUTE',
+        amountColumn: 'BREME',
+        descriptionColumn: 'NAMEN',
+        recipientColumn: 'UDELE.*NAZIV',
+        dateFormat: 'dd.mm.yyyy'
+    },
+    'nlb': {
+        name: 'NLB',
+        logo: nlbLogo,
+        dateColumn: 'Datum',
+        amountColumn: 'Znesek',
+        descriptionColumn: 'Namen',
+        recipientColumn: 'Prejemnik',
+        dateFormat: 'dd.mm.yyyy'
+    },
+    'intesa': {
+        name: 'Intesa Sanpaolo',
+        logo: intesaLogo,
+        dateColumn: 'Data',
+        amountColumn: 'Importo',
+        descriptionColumn: 'Descrizione',
+        recipientColumn: 'Beneficiario',
+        dateFormat: 'dd/mm/yyyy'
+    }
+};
+
 class ExcelParser {
     private fileInput: HTMLInputElement;
     private uploadArea: HTMLElement;
@@ -29,10 +72,13 @@ class ExcelParser {
     private sheetTabs: HTMLElement;
     private chartContainer: HTMLElement;
     private monthSelect: HTMLSelectElement;
+    private bankSelect: HTMLSelectElement;
+    private bankLogo: HTMLImageElement;
     private parsedSheets: ParsedData[] = [];
     private currentSheetIndex: number = 0;
     private transactions: Transaction[] = [];
     private currentChart: Chart | null = null;
+    private currentBank: string = 'nkbm-otp';
 
     constructor() {
         this.fileInput = document.getElementById('fileInput') as HTMLInputElement;
@@ -45,14 +91,18 @@ class ExcelParser {
         this.sheetTabs = document.getElementById('sheetTabs') as HTMLElement;
         this.chartContainer = document.getElementById('chartContainer') as HTMLElement;
         this.monthSelect = document.getElementById('monthSelect') as HTMLSelectElement;
+        this.bankSelect = document.getElementById('bankSelect') as HTMLSelectElement;
+        this.bankLogo = document.getElementById('bankLogo') as HTMLImageElement;
 
         this.initializeEventListeners();
+        this.updateBankLogo();
     }
 
     private initializeEventListeners(): void {
         this.uploadArea.addEventListener('click', () => this.fileInput.click());
         this.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
         this.monthSelect.addEventListener('change', () => this.updateChart());
+        this.bankSelect.addEventListener('change', (e) => this.handleBankChange(e));
 
         this.uploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -90,7 +140,7 @@ class ExcelParser {
         this.currentSheetIndex = 0;
 
         if (!this.isValidFileType(file)) {
-            this.showError('Please select a valid Excel file (.xlsx, .xls, or .csv)');
+            this.showError(`Please select a valid CSV file from ${bankConfigs[this.currentBank].name} bank statements`);
             return;
         }
 
@@ -154,25 +204,31 @@ class ExcelParser {
         if (this.parsedSheets.length === 0) return false;
         
         const headers = this.parsedSheets[0].headers;
-        const bankHeaders = ['DATUM VALUTE', 'BREME', 'NAMEN', 'UDELE'];
+        const config = bankConfigs[this.currentBank];
         
-        return bankHeaders.some(bankHeader => 
-            headers.some(header => header.toUpperCase().includes(bankHeader))
-        );
+        // Check if key columns exist for the selected bank
+        const hasDateColumn = headers.some(h => h.toUpperCase().includes(config.dateColumn.toUpperCase()));
+        const hasAmountColumn = headers.some(h => h.toUpperCase().includes(config.amountColumn.toUpperCase()));
+        
+        return hasDateColumn && hasAmountColumn;
     }
 
     private parseBankTransactions(): void {
         const sheet = this.parsedSheets[0];
         const headers = sheet.headers;
+        const config = bankConfigs[this.currentBank];
         
-        // Find column indices
-        const dateIndex = headers.findIndex(h => h.includes('DATUM VALUTE'));
-        const amountIndex = headers.findIndex(h => h === 'BREME');
-        const purposeIndex = headers.findIndex(h => h === 'NAMEN');
-        const recipientIndex = headers.findIndex(h => h.includes('UDELE') && h.includes('NAZIV'));
+        // Find column indices based on bank configuration
+        const dateIndex = headers.findIndex(h => h.toUpperCase().includes(config.dateColumn.toUpperCase()));
+        const amountIndex = headers.findIndex(h => h.toUpperCase().includes(config.amountColumn.toUpperCase()));
+        const purposeIndex = headers.findIndex(h => h.toUpperCase().includes(config.descriptionColumn.toUpperCase()));
+        const recipientIndex = headers.findIndex(h => {
+            const pattern = new RegExp(config.recipientColumn, 'i');
+            return pattern.test(h);
+        });
 
         if (dateIndex === -1 || amountIndex === -1) {
-            console.error('Required columns not found');
+            console.error('Required columns not found for bank:', this.currentBank);
             return;
         }
 
@@ -180,12 +236,26 @@ class ExcelParser {
             .filter(row => row[dateIndex] && row[amountIndex])
             .map(row => {
                 const dateStr = row[dateIndex];
-                const dateParts = dateStr.split('.');
-                const date = new Date(
-                    parseInt(dateParts[2]), 
-                    parseInt(dateParts[1]) - 1, 
-                    parseInt(dateParts[0])
-                );
+                let date: Date;
+                
+                // Parse date based on bank's date format
+                if (config.dateFormat === 'dd.mm.yyyy') {
+                    const dateParts = dateStr.split('.');
+                    date = new Date(
+                        parseInt(dateParts[2]), 
+                        parseInt(dateParts[1]) - 1, 
+                        parseInt(dateParts[0])
+                    );
+                } else if (config.dateFormat === 'dd/mm/yyyy') {
+                    const dateParts = dateStr.split('/');
+                    date = new Date(
+                        parseInt(dateParts[2]), 
+                        parseInt(dateParts[1]) - 1, 
+                        parseInt(dateParts[0])
+                    );
+                } else {
+                    date = new Date(dateStr);
+                }
                 
                 const amount = parseFloat(row[amountIndex].replace(',', '.')) || 0;
                 const description = row[purposeIndex] || 'Unknown';
@@ -424,6 +494,27 @@ class ExcelParser {
 
     private hideError(): void {
         this.errorMessage.style.display = 'none';
+    }
+
+    private updateBankLogo(): void {
+        const config = bankConfigs[this.currentBank];
+        if (this.bankLogo && config) {
+            this.bankLogo.src = config.logo;
+            this.bankLogo.alt = `${config.name} Logo`;
+        }
+    }
+
+    private handleBankChange(event: Event): void {
+        const select = event.target as HTMLSelectElement;
+        this.currentBank = select.value;
+        this.updateBankLogo();
+        
+        // Clear any existing data when switching banks
+        this.hideTable();
+        this.hideChart();
+        this.hideError();
+        this.parsedSheets = [];
+        this.transactions = [];
     }
 }
 
