@@ -15,6 +15,7 @@ interface Transaction {
     amount: number;
     description: string;
     recipient: string;
+    type: 'income' | 'expense';
 }
 
 interface MonthlySpending {
@@ -25,7 +26,8 @@ interface BankConfig {
     name: string;
     logo: string;
     dateColumn: string;
-    amountColumn: string;
+    incomeColumn: string;
+    expenseColumn: string;
     descriptionColumn: string;
     recipientColumn: string;
     dateFormat: string;
@@ -36,7 +38,8 @@ const bankConfigs: { [key: string]: BankConfig } = {
         name: 'NKBM/OTP',
         logo: nkbmOtpLogo,
         dateColumn: 'DATUM VALUTE',
-        amountColumn: 'BREME',
+        incomeColumn: 'DOBRO',
+        expenseColumn: 'BREME',
         descriptionColumn: 'NAMEN',
         recipientColumn: 'UDELE.*NAZIV',
         dateFormat: 'dd.mm.yyyy'
@@ -45,7 +48,8 @@ const bankConfigs: { [key: string]: BankConfig } = {
         name: 'NLB',
         logo: nlbLogo,
         dateColumn: 'Datum',
-        amountColumn: 'Znesek',
+        incomeColumn: 'Prilivi',
+        expenseColumn: 'Odlivi',
         descriptionColumn: 'Namen',
         recipientColumn: 'Prejemnik',
         dateFormat: 'dd.mm.yyyy'
@@ -54,7 +58,8 @@ const bankConfigs: { [key: string]: BankConfig } = {
         name: 'Intesa Sanpaolo',
         logo: intesaLogo,
         dateColumn: 'Data',
-        amountColumn: 'Importo',
+        incomeColumn: 'Accrediti',
+        expenseColumn: 'Addebiti',
         descriptionColumn: 'Descrizione',
         recipientColumn: 'Beneficiario',
         dateFormat: 'dd/mm/yyyy'
@@ -70,14 +75,15 @@ class ExcelParser {
     private fileInfo: HTMLElement;
     private errorMessage: HTMLElement;
     private sheetTabs: HTMLElement;
-    private chartContainer: HTMLElement;
+    private chartsContainer: HTMLElement;
     private monthSelect: HTMLSelectElement;
     private bankSelect: HTMLSelectElement;
     private bankLogo: HTMLImageElement;
     private parsedSheets: ParsedData[] = [];
     private currentSheetIndex: number = 0;
     private transactions: Transaction[] = [];
-    private currentChart: Chart | null = null;
+    private expenseChart: Chart | null = null;
+    private incomeChart: Chart | null = null;
     private currentBank: string = 'nkbm-otp';
 
     constructor() {
@@ -89,7 +95,7 @@ class ExcelParser {
         this.fileInfo = document.getElementById('fileInfo') as HTMLElement;
         this.errorMessage = document.getElementById('errorMessage') as HTMLElement;
         this.sheetTabs = document.getElementById('sheetTabs') as HTMLElement;
-        this.chartContainer = document.getElementById('chartContainer') as HTMLElement;
+        this.chartsContainer = document.getElementById('chartsContainer') as HTMLElement;
         this.monthSelect = document.getElementById('monthSelect') as HTMLSelectElement;
         this.bankSelect = document.getElementById('bankSelect') as HTMLSelectElement;
         this.bankLogo = document.getElementById('bankLogo') as HTMLImageElement;
@@ -101,7 +107,7 @@ class ExcelParser {
     private initializeEventListeners(): void {
         this.uploadArea.addEventListener('click', () => this.fileInput.click());
         this.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
-        this.monthSelect.addEventListener('change', () => this.updateChart());
+        this.monthSelect.addEventListener('change', () => this.updateCharts());
         this.bankSelect.addEventListener('change', (e) => this.handleBankChange(e));
 
         this.uploadArea.addEventListener('dragover', (e) => {
@@ -134,7 +140,7 @@ class ExcelParser {
     private processFile(file: File): void {
         this.hideError();
         this.hideTable();
-        this.hideChart();
+        this.hideCharts();
         this.parsedSheets = [];
         this.transactions = [];
         this.currentSheetIndex = 0;
@@ -183,7 +189,7 @@ class ExcelParser {
                     if (this.isBankTransactionFile()) {
                         this.parseBankTransactions();
                         this.setupMonthSelector();
-                        this.showChart();
+                        this.showCharts();
                     }
                 } else {
                     this.showError('No data found in the file');
@@ -208,9 +214,10 @@ class ExcelParser {
         
         // Check if key columns exist for the selected bank
         const hasDateColumn = headers.some(h => h.toUpperCase().includes(config.dateColumn.toUpperCase()));
-        const hasAmountColumn = headers.some(h => h.toUpperCase().includes(config.amountColumn.toUpperCase()));
+        const hasIncomeColumn = headers.some(h => h.toUpperCase().includes(config.incomeColumn.toUpperCase()));
+        const hasExpenseColumn = headers.some(h => h.toUpperCase().includes(config.expenseColumn.toUpperCase()));
         
-        return hasDateColumn && hasAmountColumn;
+        return hasDateColumn && (hasIncomeColumn || hasExpenseColumn);
     }
 
     private parseBankTransactions(): void {
@@ -220,55 +227,133 @@ class ExcelParser {
         
         // Find column indices based on bank configuration
         const dateIndex = headers.findIndex(h => h.toUpperCase().includes(config.dateColumn.toUpperCase()));
-        const amountIndex = headers.findIndex(h => h.toUpperCase().includes(config.amountColumn.toUpperCase()));
+        const incomeIndex = headers.findIndex(h => h.toUpperCase().includes(config.incomeColumn.toUpperCase()));
+        const expenseIndex = headers.findIndex(h => h.toUpperCase().includes(config.expenseColumn.toUpperCase()));
         const purposeIndex = headers.findIndex(h => h.toUpperCase().includes(config.descriptionColumn.toUpperCase()));
         const recipientIndex = headers.findIndex(h => {
             const pattern = new RegExp(config.recipientColumn, 'i');
             return pattern.test(h);
         });
 
-        if (dateIndex === -1 || amountIndex === -1) {
+        if (dateIndex === -1 || (incomeIndex === -1 && expenseIndex === -1)) {
             console.error('Required columns not found for bank:', this.currentBank);
             return;
         }
 
-        this.transactions = sheet.rows
-            .filter(row => row[dateIndex] && row[amountIndex])
-            .map(row => {
-                const dateStr = row[dateIndex];
-                let date: Date;
-                
-                // Parse date based on bank's date format
-                if (config.dateFormat === 'dd.mm.yyyy') {
-                    const dateParts = dateStr.split('.');
-                    date = new Date(
-                        parseInt(dateParts[2]), 
-                        parseInt(dateParts[1]) - 1, 
-                        parseInt(dateParts[0])
-                    );
-                } else if (config.dateFormat === 'dd/mm/yyyy') {
-                    const dateParts = dateStr.split('/');
-                    date = new Date(
-                        parseInt(dateParts[2]), 
-                        parseInt(dateParts[1]) - 1, 
-                        parseInt(dateParts[0])
-                    );
-                } else {
-                    date = new Date(dateStr);
+        this.transactions = [];
+        
+        sheet.rows.forEach(row => {
+            if (!row[dateIndex]) return;
+            
+            const dateStr = row[dateIndex];
+            let date: Date;
+            
+            // Parse date based on bank's date format
+            if (config.dateFormat === 'dd.mm.yyyy') {
+                const dateParts = dateStr.split('.');
+                date = new Date(
+                    parseInt(dateParts[2]), 
+                    parseInt(dateParts[1]) - 1, 
+                    parseInt(dateParts[0])
+                );
+            } else if (config.dateFormat === 'dd/mm/yyyy') {
+                const dateParts = dateStr.split('/');
+                date = new Date(
+                    parseInt(dateParts[2]), 
+                    parseInt(dateParts[1]) - 1, 
+                    parseInt(dateParts[0])
+                );
+            } else {
+                date = new Date(dateStr);
+            }
+            
+            const description = row[purposeIndex] || 'Unknown';
+            const recipient = row[recipientIndex] || 'Unknown';
+            
+            // Parse income if present
+            if (incomeIndex !== -1 && row[incomeIndex]) {
+                const rawValue = String(row[incomeIndex]).trim();
+                if (rawValue && rawValue !== '0' && rawValue !== '') {
+                    // Handle different number formats: 1,234.56 or 1.234,56
+                    let cleanValue = rawValue.replace(/[^\d,.-]/g, ''); // Remove non-numeric chars except comma, dot, minus
+                    
+                    // If contains both comma and dot, determine which is decimal separator
+                    if (cleanValue.includes(',') && cleanValue.includes('.')) {
+                        if (cleanValue.lastIndexOf(',') > cleanValue.lastIndexOf('.')) {
+                            // Comma is decimal separator (European format)
+                            cleanValue = cleanValue.replace(/\./g, '').replace(',', '.');
+                        } else {
+                            // Dot is decimal separator (US format)
+                            cleanValue = cleanValue.replace(/,/g, '');
+                        }
+                    } else if (cleanValue.includes(',')) {
+                        // Only comma - could be thousands or decimal separator
+                        const parts = cleanValue.split(',');
+                        if (parts.length === 2 && parts[1].length <= 2) {
+                            // Likely decimal separator
+                            cleanValue = cleanValue.replace(',', '.');
+                        } else {
+                            // Likely thousands separator
+                            cleanValue = cleanValue.replace(/,/g, '');
+                        }
+                    }
+                    
+                    const amount = parseFloat(cleanValue) || 0;
+                    if (amount > 0) {
+                        console.log(`Income: ${rawValue} -> ${amount}`);
+                        this.transactions.push({
+                            date,
+                            amount,
+                            description,
+                            recipient,
+                            type: 'income'
+                        });
+                    }
                 }
-                
-                const amount = parseFloat(row[amountIndex].replace(',', '.')) || 0;
-                const description = row[purposeIndex] || 'Unknown';
-                const recipient = row[recipientIndex] || 'Unknown';
-
-                return {
-                    date,
-                    amount,
-                    description,
-                    recipient
-                };
-            })
-            .filter(t => t.amount > 0); // Only expenses
+            }
+            
+            // Parse expense if present
+            if (expenseIndex !== -1 && row[expenseIndex]) {
+                const rawValue = String(row[expenseIndex]).trim();
+                if (rawValue && rawValue !== '0' && rawValue !== '') {
+                    // Handle different number formats: 1,234.56 or 1.234,56
+                    let cleanValue = rawValue.replace(/[^\d,.-]/g, ''); // Remove non-numeric chars except comma, dot, minus
+                    
+                    // If contains both comma and dot, determine which is decimal separator
+                    if (cleanValue.includes(',') && cleanValue.includes('.')) {
+                        if (cleanValue.lastIndexOf(',') > cleanValue.lastIndexOf('.')) {
+                            // Comma is decimal separator (European format)
+                            cleanValue = cleanValue.replace(/\./g, '').replace(',', '.');
+                        } else {
+                            // Dot is decimal separator (US format)
+                            cleanValue = cleanValue.replace(/,/g, '');
+                        }
+                    } else if (cleanValue.includes(',')) {
+                        // Only comma - could be thousands or decimal separator
+                        const parts = cleanValue.split(',');
+                        if (parts.length === 2 && parts[1].length <= 2) {
+                            // Likely decimal separator
+                            cleanValue = cleanValue.replace(',', '.');
+                        } else {
+                            // Likely thousands separator
+                            cleanValue = cleanValue.replace(/,/g, '');
+                        }
+                    }
+                    
+                    const amount = parseFloat(cleanValue) || 0;
+                    if (amount > 0) {
+                        console.log(`Expense: ${rawValue} -> ${amount}`);
+                        this.transactions.push({
+                            date,
+                            amount,
+                            description,
+                            recipient,
+                            type: 'expense'
+                        });
+                    }
+                }
+            }
+        });
     }
 
     private setupMonthSelector(): void {
@@ -293,7 +378,7 @@ class ExcelParser {
         });
 
         if (sortedMonths.length > 0) {
-            this.updateChart();
+            this.updateCharts();
         }
     }
 
@@ -301,66 +386,100 @@ class ExcelParser {
         const desc = transaction.description.toUpperCase();
         const recipient = transaction.recipient.toUpperCase();
         
-        if (desc.includes('REVOLUT') || desc.includes('PAYPAL')) return 'Digital Payments';
-        if (desc.includes('MARKET') || desc.includes('TRGOVINA') || desc.includes('SPAR') || desc.includes('MERCATOR')) return 'Groceries';
-        if (desc.includes('RESTAVRACIJA') || desc.includes('GOSTINSTVO') || desc.includes('FOOD')) return 'Restaurants';
-        if (desc.includes('BENCIN') || desc.includes('PETROL') || desc.includes('OMV')) return 'Gas';
-        if (desc.includes('TELEKOM') || desc.includes('A1') || desc.includes('TELEMACH')) return 'Telecom';
-        if (recipient.includes('UNIVERZA')) return 'Education';
-        if (desc.includes('ZAVAROVANJE')) return 'Insurance';
-        if (desc.includes('NAJEMNINA') || desc.includes('RENT')) return 'Rent';
-        
-        return 'Other';
+        if (transaction.type === 'expense') {
+            if (desc.includes('REVOLUT') || desc.includes('PAYPAL')) return 'Digital Payments';
+            if (desc.includes('MARKET') || desc.includes('TRGOVINA') || desc.includes('SPAR') || desc.includes('MERCATOR')) return 'Groceries';
+            if (desc.includes('RESTAVRACIJA') || desc.includes('GOSTINSTVO') || desc.includes('FOOD')) return 'Restaurants';
+            if (desc.includes('BENCIN') || desc.includes('PETROL') || desc.includes('OMV')) return 'Gas';
+            if (desc.includes('TELEKOM') || desc.includes('A1') || desc.includes('TELEMACH')) return 'Telecom';
+            if (recipient.includes('UNIVERZA')) return 'Education';
+            if (desc.includes('ZAVAROVANJE')) return 'Insurance';
+            if (desc.includes('NAJEMNINA') || desc.includes('RENT')) return 'Rent';
+            return 'Other Expenses';
+        } else {
+            // Income categorization
+            if (desc.includes('PLAČA') || desc.includes('SALARY') || desc.includes('MEZDA')) return 'Salary';
+            if (desc.includes('DIVIDENDA') || desc.includes('DIVIDEND')) return 'Dividends';
+            if (desc.includes('OBRESTI') || desc.includes('INTEREST')) return 'Interest';
+            if (desc.includes('NAKAZILO') || desc.includes('TRANSFER')) return 'Transfer';
+            if (desc.includes('REFUND') || desc.includes('POVRAČILO')) return 'Refund';
+            if (desc.includes('FREELANCE') || desc.includes('HONORAR')) return 'Freelance';
+            if (desc.includes('GIFT') || desc.includes('DARILO')) return 'Gift';
+            return 'Other Income';
+        }
     }
 
-    private updateChart(): void {
+    private updateCharts(): void {
         const selectedMonth = this.monthSelect.value;
         if (!selectedMonth) return;
 
         const [year, month] = selectedMonth.split('-').map(Number);
         
-        const monthlyTransactions = this.transactions.filter(t => 
-            t.date.getFullYear() === year && t.date.getMonth() + 1 === month
+        // Filter transactions for the selected month
+        const monthlyExpenses = this.transactions.filter(t => 
+            t.date.getFullYear() === year && 
+            t.date.getMonth() + 1 === month &&
+            t.type === 'expense'
+        );
+        
+        const monthlyIncome = this.transactions.filter(t => 
+            t.date.getFullYear() === year && 
+            t.date.getMonth() + 1 === month &&
+            t.type === 'income'
         );
 
-        const spending: MonthlySpending = {};
-        monthlyTransactions.forEach(t => {
+        // Categorize expenses
+        const expenseData: MonthlySpending = {};
+        monthlyExpenses.forEach(t => {
             const category = this.categorizeTransaction(t);
-            spending[category] = (spending[category] || 0) + t.amount;
+            expenseData[category] = (expenseData[category] || 0) + t.amount;
         });
 
-        this.drawChart(spending);
+        // Categorize income
+        const incomeData: MonthlySpending = {};
+        monthlyIncome.forEach(t => {
+            const category = this.categorizeTransaction(t);
+            incomeData[category] = (incomeData[category] || 0) + t.amount;
+        });
+
+        this.drawExpenseChart(expenseData);
+        this.drawIncomeChart(incomeData);
+        this.updateTotals(expenseData, incomeData);
     }
 
-    private drawChart(spending: MonthlySpending): void {
-        const canvas = document.getElementById('spendingChart') as HTMLCanvasElement;
+    private drawExpenseChart(expenseData: MonthlySpending): void {
+        const canvas = document.getElementById('expenseChart') as HTMLCanvasElement;
         const ctx = canvas.getContext('2d');
         
         if (!ctx) return;
 
-        if (this.currentChart) {
-            this.currentChart.destroy();
+        if (this.expenseChart) {
+            this.expenseChart.destroy();
         }
 
-        const labels = Object.keys(spending);
-        const data = Object.values(spending).map(v => Math.round(v * 100) / 100);
+        const labels = Object.keys(expenseData);
+        const data = Object.values(expenseData).map(v => Math.round(v * 100) / 100);
         
-        this.currentChart = new Chart(ctx, {
+        if (data.length === 0 || data.every(v => v === 0)) {
+            // No expense data - show empty state
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#666';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('No expenses this month', canvas.width / 2, canvas.height / 2);
+            return;
+        }
+        
+        this.expenseChart = new Chart(ctx, {
             type: 'pie',
             data: {
                 labels: labels,
                 datasets: [{
                     data: data,
                     backgroundColor: [
-                        '#FF6384',
-                        '#36A2EB',
-                        '#FFCE56',
-                        '#4BC0C0',
-                        '#9966FF',
-                        '#FF9F40',
-                        '#FF6384',
-                        '#C9CBCF',
-                        '#4BC0C0'
+                        '#FF6B6B', '#FF8E8E', '#FFB1B1', '#FFD4D4',
+                        '#FF9F43', '#FFC048', '#FFE04D', '#FFF352',
+                        '#FF6384', '#FF8FA3', '#FFBCC2', '#FFE8E1'
                     ],
                     borderWidth: 2,
                     borderColor: '#fff'
@@ -372,6 +491,12 @@ class ExcelParser {
                 plugins: {
                     legend: {
                         position: 'bottom',
+                        labels: {
+                            boxWidth: 12,
+                            font: {
+                                size: 11
+                            }
+                        }
                     },
                     tooltip: {
                         callbacks: {
@@ -387,6 +512,89 @@ class ExcelParser {
                 }
             }
         });
+    }
+
+    private drawIncomeChart(incomeData: MonthlySpending): void {
+        const canvas = document.getElementById('incomeChart') as HTMLCanvasElement;
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) return;
+
+        if (this.incomeChart) {
+            this.incomeChart.destroy();
+        }
+
+        const labels = Object.keys(incomeData);
+        const data = Object.values(incomeData).map(v => Math.round(v * 100) / 100);
+        
+        if (data.length === 0 || data.every(v => v === 0)) {
+            // No income data - show empty state
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#666';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('No income this month', canvas.width / 2, canvas.height / 2);
+            return;
+        }
+        
+        this.incomeChart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: [
+                        '#4ECDC4', '#26D0CE', '#1DD1A1', '#00D2D3',
+                        '#55A3FF', '#5F95FF', '#6C5CE7', '#A29BFE',
+                        '#00B894', '#00CEC9', '#81ECEC', '#74B9FF'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            boxWidth: 12,
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${label}: €${value.toFixed(2)} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    private updateTotals(expenseData: MonthlySpending, incomeData: MonthlySpending): void {
+        const expenseTotal = Object.values(expenseData).reduce((sum, amount) => sum + amount, 0);
+        const incomeTotal = Object.values(incomeData).reduce((sum, amount) => sum + amount, 0);
+        
+        const expenseTotalElement = document.getElementById('expenseTotal');
+        const incomeTotalElement = document.getElementById('incomeTotal');
+        
+        if (expenseTotalElement) {
+            expenseTotalElement.textContent = `€${expenseTotal.toFixed(2)}`;
+        }
+        
+        if (incomeTotalElement) {
+            incomeTotalElement.textContent = `€${incomeTotal.toFixed(2)}`;
+        }
     }
 
     private isValidFileType(file: File): boolean {
@@ -479,13 +687,7 @@ class ExcelParser {
         this.sheetTabs.style.display = 'none';
     }
 
-    private showChart(): void {
-        this.chartContainer.style.display = 'block';
-    }
 
-    private hideChart(): void {
-        this.chartContainer.style.display = 'none';
-    }
 
     private showError(message: string): void {
         this.errorMessage.textContent = message;
@@ -494,6 +696,14 @@ class ExcelParser {
 
     private hideError(): void {
         this.errorMessage.style.display = 'none';
+    }
+
+    private showCharts(): void {
+        this.chartsContainer.style.display = 'block';
+    }
+
+    private hideCharts(): void {
+        this.chartsContainer.style.display = 'none';
     }
 
     private updateBankLogo(): void {
@@ -511,11 +721,12 @@ class ExcelParser {
         
         // Clear any existing data when switching banks
         this.hideTable();
-        this.hideChart();
+        this.hideCharts();
         this.hideError();
         this.parsedSheets = [];
         this.transactions = [];
     }
+
 }
 
 document.addEventListener('DOMContentLoaded', () => {

@@ -99,16 +99,17 @@
             background-color: #007bff;
             color: white;
         }
-        .chart-container {
+        .charts-container {
             margin: 30px 0;
             display: none;
         }
-        .chart-container h2 {
+        .charts-container h2 {
             color: #333;
             margin-bottom: 20px;
+            text-align: center;
         }
         .month-selector {
-            margin-bottom: 20px;
+            margin-bottom: 30px;
             text-align: center;
         }
         .month-selector select {
@@ -117,9 +118,33 @@
             border: 1px solid #ddd;
             border-radius: 5px;
         }
-        #spendingChart {
+        .charts-row {
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-start;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+        .chart-item {
+            flex: 1;
+            min-width: 350px;
             max-width: 500px;
-            margin: 0 auto;
+            text-align: center;
+        }
+        .chart-item h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        .chart-item canvas {
+            max-width: 100%;
+            height: auto;
+        }
+        .total-amount {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin: 5px 0 15px 0;
         }
         .logo-container {
             text-align: center;
@@ -181,13 +206,24 @@
         
         <div class="sheet-tabs" id="sheetTabs"></div>
         
-        <div class="chart-container" id="chartContainer">
-            <h2>Monthly Spending Analysis</h2>
+        <div class="charts-container" id="chartsContainer">
+            <h2>Monthly Financial Analysis</h2>
             <div class="month-selector">
                 <label for="monthSelect">Select Month: </label>
                 <select id="monthSelect"></select>
             </div>
-            <canvas id="spendingChart"></canvas>
+            <div class="charts-row">
+                <div class="chart-item">
+                    <h3>Expenses</h3>
+                    <p class="total-amount" id="expenseTotal">€0.00</p>
+                    <canvas id="expenseChart"></canvas>
+                </div>
+                <div class="chart-item">
+                    <h3>Income</h3>
+                    <p class="total-amount" id="incomeTotal">€0.00</p>
+                    <canvas id="incomeChart"></canvas>
+                </div>
+            </div>
         </div>
         
         <div class="table-container" id="tableContainer">
