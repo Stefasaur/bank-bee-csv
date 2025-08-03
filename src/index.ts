@@ -25,6 +25,13 @@ interface MonthlySpending {
   [category: string]: number;
 }
 
+interface CategoryData {
+  [category: string]: {
+    amount: number;
+    transactions: Transaction[];
+  };
+}
+
 interface RecipientData {
   name: string;
   amount: number;
@@ -35,6 +42,7 @@ interface DailyData {
   date: string;
   amount: number;
   count: number;
+  transactions: Transaction[];
 }
 
 interface BankConfig {
@@ -121,6 +129,10 @@ class ExcelParser {
   private currentBank: string = 'nkbm-otp';
   private currentView: 'category'|'recipient' = 'category';
   private currentChartType: 'pie'|'daily' = 'pie';
+  private currentExpenseData: CategoryData = {};
+  private currentIncomeData: CategoryData = {};
+  private currentExpenseDailyData: DailyData[] = [];
+  private currentIncomeDailyData: DailyData[] = [];
   private categoryViewBtn: HTMLButtonElement;
   private recipientViewBtn: HTMLButtonElement;
   private pieChartBtn: HTMLButtonElement;
@@ -586,19 +598,12 @@ class ExcelParser {
 
     if (this.currentChartType === 'pie') {
       if (this.currentView === 'category') {
-        // Categorize expenses
-        const expenseData: MonthlySpending = {};
-        monthlyExpenses.forEach(t => {
-          const category = this.categorizeTransaction(t);
-          expenseData[category] = (expenseData[category] || 0) + t.amount;
-        });
+        // Categorize expenses with transaction details
+        this.currentExpenseData = this.getCategoryData(monthlyExpenses);
+        this.currentIncomeData = this.getCategoryData(monthlyIncome);
 
-        // Categorize income
-        const incomeData: MonthlySpending = {};
-        monthlyIncome.forEach(t => {
-          const category = this.categorizeTransaction(t);
-          incomeData[category] = (incomeData[category] || 0) + t.amount;
-        });
+        const expenseData = this.categoryDataToSpending(this.currentExpenseData);
+        const incomeData = this.categoryDataToSpending(this.currentIncomeData);
 
         this.drawExpenseChart(expenseData);
         this.drawIncomeChart(incomeData);
@@ -614,14 +619,14 @@ class ExcelParser {
       }
     } else {
       // Daily view
-      const expenseDailyData = this.getDailyData(monthlyExpenses);
-      const incomeDailyData = this.getDailyData(monthlyIncome);
+      this.currentExpenseDailyData = this.getDailyData(monthlyExpenses);
+      this.currentIncomeDailyData = this.getDailyData(monthlyIncome);
 
-      this.drawDailyChart('expenseChart', expenseDailyData, 'Expenses');
-      this.drawDailyChart('incomeChart', incomeDailyData, 'Income');
+      this.drawDailyChart('expenseChart', this.currentExpenseDailyData, 'Expenses');
+      this.drawDailyChart('incomeChart', this.currentIncomeDailyData, 'Income');
       this.updateTotals(
-          this.dailyDataToSpending(expenseDailyData),
-          this.dailyDataToSpending(incomeDailyData));
+          this.dailyDataToSpending(this.currentExpenseDailyData),
+          this.dailyDataToSpending(this.currentIncomeDailyData));
     }
   }
 
@@ -683,7 +688,27 @@ class ExcelParser {
                   // For recipient view, show cleaner format
                   return `${label}: ${this.getCurrency()}${value.toFixed(2)} (${percentage}%)`;
                 } else {
-                  return `${label}: ${this.getCurrency()}${value.toFixed(2)} (${percentage}%)`;
+                  // For category view, show transaction details
+                  const categoryData = this.currentExpenseData;
+                  const transactions = categoryData[label]?.transactions || [];
+                  
+                  const result = [
+                    `${label}: ${this.getCurrency()}${value.toFixed(2)} (${percentage}%)`,
+                    `Transactions: ${transactions.length}`
+                  ];
+                  
+                  // Show up to 3 sample transaction descriptions
+                  const sampleTransactions = transactions.slice(0, 3);
+                  sampleTransactions.forEach((t, i) => {
+                    const desc = t.description.length > 30 ? t.description.substring(0, 30) + '...' : t.description;
+                    result.push(`• ${desc}`);
+                  });
+                  
+                  if (transactions.length > 3) {
+                    result.push(`... and ${transactions.length - 3} more`);
+                  }
+                  
+                  return result;
                 }
               }
             }
@@ -750,7 +775,27 @@ class ExcelParser {
                   // For recipient view, show cleaner format
                   return `${label}: ${this.getCurrency()}${value.toFixed(2)} (${percentage}%)`;
                 } else {
-                  return `${label}: ${this.getCurrency()}${value.toFixed(2)} (${percentage}%)`;
+                  // For category view, show transaction details
+                  const categoryData = this.currentIncomeData;
+                  const transactions = categoryData[label]?.transactions || [];
+                  
+                  const result = [
+                    `${label}: ${this.getCurrency()}${value.toFixed(2)} (${percentage}%)`,
+                    `Transactions: ${transactions.length}`
+                  ];
+                  
+                  // Show up to 3 sample transaction descriptions
+                  const sampleTransactions = transactions.slice(0, 3);
+                  sampleTransactions.forEach((t, i) => {
+                    const desc = t.description.length > 30 ? t.description.substring(0, 30) + '...' : t.description;
+                    result.push(`• ${desc}`);
+                  });
+                  
+                  if (transactions.length > 3) {
+                    result.push(`... and ${transactions.length - 3} more`);
+                  }
+                  
+                  return result;
                 }
               }
             }
@@ -860,8 +905,9 @@ class ExcelParser {
       if (existing) {
         existing.amount += t.amount;
         existing.count += 1;
+        existing.transactions.push(t);
       } else {
-        dailyMap.set(dateKey, {date: dateKey, amount: t.amount, count: 1});
+        dailyMap.set(dateKey, {date: dateKey, amount: t.amount, count: 1, transactions: [t]});
       }
     });
 
@@ -873,6 +919,29 @@ class ExcelParser {
   private dailyDataToSpending(dailyData: DailyData[]): MonthlySpending {
     const total = dailyData.reduce((sum, day) => sum + day.amount, 0);
     return {'Total': total};
+  }
+
+  private getCategoryData(transactions: Transaction[]): CategoryData {
+    const categoryData: CategoryData = {};
+    
+    transactions.forEach(t => {
+      const category = this.categorizeTransaction(t);
+      if (!categoryData[category]) {
+        categoryData[category] = { amount: 0, transactions: [] };
+      }
+      categoryData[category].amount += t.amount;
+      categoryData[category].transactions.push(t);
+    });
+    
+    return categoryData;
+  }
+
+  private categoryDataToSpending(categoryData: CategoryData): MonthlySpending {
+    const spending: MonthlySpending = {};
+    Object.keys(categoryData).forEach(category => {
+      spending[category] = categoryData[category].amount;
+    });
+    return spending;
   }
 
   private drawDailyChart(
@@ -941,10 +1010,29 @@ class ExcelParser {
                 const amount = amounts[dayIndex];
                 const count = counts[dayIndex];
                 const date = dailyData[dayIndex].date;
-                return [
-                  `Date: ${date}`, `Amount: ${this.getCurrency()}${amount.toFixed(2)}`,
+                const transactions = dailyData[dayIndex].transactions;
+                
+                const result = [
+                  `Date: ${date}`,
+                  `Amount: ${this.getCurrency()}${amount.toFixed(2)}`,
                   `Transactions: ${count}`
                 ];
+                
+                // Show up to 3 sample transaction descriptions
+                const sampleTransactions = transactions.slice(0, 3);
+                if (sampleTransactions.length > 0) {
+                  result.push(''); // Add empty line for separation
+                  sampleTransactions.forEach(t => {
+                    const desc = t.description.length > 35 ? t.description.substring(0, 35) + '...' : t.description;
+                    result.push(`• ${desc} (${this.getCurrency()}${t.amount.toFixed(2)})`);
+                  });
+                  
+                  if (transactions.length > 3) {
+                    result.push(`... and ${transactions.length - 3} more`);
+                  }
+                }
+                
+                return result;
               }
             }
           }
