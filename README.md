@@ -21,6 +21,7 @@ A privacy-first bank statement analyzer that processes your CSV files locally in
 - **NKBM/OTP** - Full support for DOBRO (income) and BREME (expense) columns
 - **NLB** - Slovenian bank format
 - **Intesa Sanpaolo** - Italian bank format
+- **Erste Bank Serbia** - Erste bank (Serbia) format
 - Easy to extend for additional banks
 
 ### 🔍 Smart Analysis
@@ -74,15 +75,24 @@ npm run build
 - Expense column: `BREME`
 - Date format: `dd.mm.yyyy`
 
-### NLB - Not yet implemented
+### NLB
 - Income column: `Prilivi`
 - Expense column: `Odlivi`
 - Date format: `dd.mm.yyyy`
 
-### Intesa Sanpaolo - Not yet implemented
+### Intesa Sanpaolo
 - Income column: `Accrediti`
 - Expense column: `Addebiti`
 - Date format: `dd/mm/yyyy`
+
+### Erste Bank Serbia
+- **File format**: `.xls` (Excel format from online banking)
+- Amount column: `Iznos` (single column with positive/negative values)
+- Date column: `Datum valute`
+- Description column: `Opis`
+- Recipient column: `Opis` (transaction description used as recipient)
+- Date format: `dd.mm.yyyy`
+- Currency: `RSD` (Serbian Dinar)
 
 ## 🛠️ Technology Stack
 
